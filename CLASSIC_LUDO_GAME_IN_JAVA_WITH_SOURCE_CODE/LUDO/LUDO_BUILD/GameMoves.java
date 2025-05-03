@@ -1,18 +1,8 @@
 package LUDO_BUILD;
 
-import java.awt.Color;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-
-import javax.swing.Timer;
-import javax.swing.JPanel;
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
 
 public class GameMoves extends JPanel implements KeyListener, ActionListener,MouseListener{
 	
@@ -143,7 +133,7 @@ public class GameMoves extends JPanel implements KeyListener, ActionListener,Mou
 					for(int i=0;i<4;i++) {
 						if(i!=current_player) {
 							for(int j=0;j<4;j++) {
-								int tem1=Path.ax[current_player][p.pl[current_player].pa[value].current],tem2=Path.ay[current_player][p.pl[current_player].pa[value].current];
+								int tem1= Path.ax[current_player][p.pl[current_player].pa[value].current],tem2= Path.ay[current_player][p.pl[current_player].pa[value].current];
 								if(p.pl[i].pa[j].x==tem1&&p.pl[i].pa[j].y==tem2) {
 									p.pl[i].pa[j].current=-1;
 									kill=1;
@@ -187,7 +177,7 @@ public class GameMoves extends JPanel implements KeyListener, ActionListener,Mou
 					for(int i=0;i<4;i++) {
 						if(i!=current_player) {
 							for(int j=0;j<4;j++) {
-								int tem1=Path.ax[current_player][p.pl[current_player].pa[value].current],tem2=Path.ay[current_player][p.pl[current_player].pa[value].current];
+								int tem1= Path.ax[current_player][p.pl[current_player].pa[value].current],tem2= Path.ay[current_player][p.pl[current_player].pa[value].current];
 								if(p.pl[i].pa[j].x==tem1&&p.pl[i].pa[j].y==tem2) {
 									p.pl[i].pa[j].current=-1;
 									kill=1;

@@ -1,6 +1,6 @@
 package LUDO_BUILD;
 
-import java.awt.Graphics2D;
+import java.awt.*;
 
 public class Player {
 	int height,width,status,coin;

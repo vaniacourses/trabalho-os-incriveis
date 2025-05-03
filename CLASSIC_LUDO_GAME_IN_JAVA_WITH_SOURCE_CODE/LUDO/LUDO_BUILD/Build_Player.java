@@ -1,11 +1,11 @@
 package LUDO_BUILD;
 
 
-import java.awt.Graphics2D;
+import java.awt.*;
 
 public class Build_Player {
 
-	Player[] pl=new Player[4]; 
+	Player[] pl=new Player[4];
 	int[][] initialx= {
 			{1,1,3,3},
 			{10,10,12,12},
