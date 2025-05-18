@@ -3,6 +3,9 @@
 # pdv
 Sistema de ERP web desenvolvido em Java com Spring Framework 
 
+# Documento do projeto
+https://docs.google.com/document/d/1fBVls_Z4Jz8wPTphYFBDkLJGMeGcL31m/edit?tab=t.0
+
 # Recursos
 - Cadastro produtos/clientes/fornecedor
 - Controle de estoque
