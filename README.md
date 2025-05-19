@@ -12,6 +12,9 @@ https://docs.google.com/document/d/19SaTcUeNuQhjzl1BpV3cVhhbluCLZTnAYBbBlxssXnI/
 # Caso de teste RecebimentoService
 https://docs.google.com/document/d/1QMEAVXBIFPrH_rlHXfF_x51rBowH8kumMehtd5dtosw/edit?usp=sharing
 
+# Caso de teste VendaService
+https://docs.google.com/document/d/1d0zmDj3YZCjAiK0FGM6cmaDSUtxbNDfAkq_WzhwJ7f0/edit?usp=sharing
+
 # Recursos
 - Cadastro produtos/clientes/fornecedor
 - Controle de estoque

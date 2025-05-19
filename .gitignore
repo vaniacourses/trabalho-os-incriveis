@@ -1,21 +1,16 @@
-# Arquivos compilados
+# Compiled class file
 *.class
-.classpath
 
-# Arquivos específicos
-README.txt
-src/main/resources/application.properties
-
-# Arquivos de log
+# Log file
 *.log
 
-# Arquivos do BlueJ
+# BlueJ files
 *.ctxt
 
-# Arquivos temporários J2ME
+# Mobile Tools for Java (J2ME)
 .mtj.tmp/
 
-# Pacotes
+# Package Files #
 *.jar
 *.war
 *.nar
@@ -24,8 +19,13 @@ src/main/resources/application.properties
 *.tar.gz
 *.rar
 
-# Logs de crash da VM
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+/target/
+<<<<<<< Updated upstream
+pom.properties
+=======
 
-# Pasta target
-/target
+application.yml
+application.properties
+>>>>>>> Stashed changes
