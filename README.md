@@ -3,8 +3,11 @@
 # pdv
 Sistema de ERP web desenvolvido em Java com Spring Framework 
 
-# Documento do Plano de Testes
+# Documentos dos Planos de Testes
 https://docs.google.com/document/d/1fBVls_Z4Jz8wPTphYFBDkLJGMeGcL31m/edit?tab=t.0
+
+# Caso de teste: Emitir nota fiscal eletrônica
+https://docs.google.com/document/d/19SaTcUeNuQhjzl1BpV3cVhhbluCLZTnAYBbBlxssXnI/edit?usp=sharing
 
 # Caso de teste RecebimentoService
 https://docs.google.com/document/d/1QMEAVXBIFPrH_rlHXfF_x51rBowH8kumMehtd5dtosw/edit?usp=sharing
