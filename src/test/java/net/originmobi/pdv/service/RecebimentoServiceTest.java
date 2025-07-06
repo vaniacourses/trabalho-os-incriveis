@@ -1,10 +1,12 @@
 package net.originmobi.pdv.service;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import net.originmobi.pdv.controller.TituloService;
+import net.originmobi.pdv.exception.RecebimentoNotFoundException;
 import net.originmobi.pdv.model.Caixa;
 import net.originmobi.pdv.model.CaixaLancamento;
 import net.originmobi.pdv.model.Parcela;
@@ -65,30 +68,41 @@ class RecebimentoServiceTest {
     @Test
     void testAbrirRecebimento() {
         Long codPessoa = 1L;
-        Long codParcela = 10L;
+        Long codParcela1 = 10L, codParcela2 = 11L;
 
         Pessoa pessoaMock = new Pessoa();
         pessoaMock.setCodigo(codPessoa);
 
-        Parcela parcelaMock = new Parcela();
-        parcelaMock.setCodigo(codParcela);
-        parcelaMock.setQuitado(0);
-        parcelaMock.setValor_restante(100.0);
-        parcelaMock.setReceber(new Receber());
-        parcelaMock.getReceber().setPessoa(pessoaMock);
+        Parcela parcelaMock1 = new Parcela();
+        parcelaMock1.setCodigo(codParcela1);
+        parcelaMock1.setQuitado(0);
+        parcelaMock1.setValor_restante(100.0);
+        parcelaMock1.setReceber(new Receber());
+        parcelaMock1.getReceber().setPessoa(pessoaMock);
+
+        Parcela parcelaMock2 = new Parcela();
+        parcelaMock2.setCodigo(codParcela2);
+        parcelaMock2.setQuitado(0);
+        parcelaMock2.setValor_restante(200.0);
+        parcelaMock2.setReceber(new Receber());
+        parcelaMock2.getReceber().setPessoa(pessoaMock);
 
         when(pessoas.buscaPessoa(codPessoa)).thenReturn(Optional.of(pessoaMock));
-        when(parcelas.busca(codParcela)).thenReturn(parcelaMock);
+        when(parcelas.busca(codParcela1)).thenReturn(parcelaMock1);
+        when(parcelas.busca(codParcela2)).thenReturn(parcelaMock2);
         when(recebimentos.save(any(Recebimento.class))).thenAnswer(invocation -> {
             Recebimento r = invocation.getArgument(0);
             r.setCodigo(123L);
+            assertEquals(300.0, r.getValor_total(), 0.01);
             return r;
         });
 
-        String codigo = recebimentoService.abrirRecebimento(codPessoa, new String[]{String.valueOf(codParcela)});
+        String codigo = recebimentoService.abrirRecebimento(codPessoa,
+                new String[]{String.valueOf(codParcela1), String.valueOf(codParcela2)});
 
         assertEquals("123", codigo);
     }
+
     
     @Test
     void testAbrirRecebimentoComParcelaQuitada() {
@@ -164,39 +178,23 @@ class RecebimentoServiceTest {
 
     @Test
     void testReceberComSucesso() {
-        Long codRecebimento = 1L;
-        Double vlRecebido = 100.0;
-        Double vlAcrescimo = 0.0;
-        Double vlDesconto = 0.0;
-        Long codTitulo = 2L;
+        Long codRecebimento = 1L, codTitulo = 2L;
+        Double vlRecebido = 100.0, vlAcrescimo = 10.0, vlDesconto = 5.0;
 
-        TituloTipo tipoMock = new TituloTipo();
-        tipoMock.setCodigo(1L);
-        tipoMock.setDescricao("DINHEIRO");
-        tipoMock.setSigla("DIN");
-        Titulo tituloMock = new Titulo();
-        tituloMock.setCodigo(codTitulo);
-        tituloMock.setTipo(tipoMock);
-
-        Pessoa pessoaMock = new Pessoa();
-        pessoaMock.setCodigo(1L);
+        TituloTipo tipoMock = new TituloTipo(); tipoMock.setSigla("DIN");
+        Titulo tituloMock = new Titulo(); tituloMock.setCodigo(codTitulo); tituloMock.setTipo(tipoMock);
 
         Recebimento recebimentoMock = new Recebimento();
         recebimentoMock.setCodigo(codRecebimento);
-        recebimentoMock.setPessoa(pessoaMock);
         recebimentoMock.setValor_total(100.0);
-        Parcela parcelaMock = new Parcela();
-        parcelaMock.setCodigo(10L);
-        parcelaMock.setValor_restante(100.0);
 
-        Usuario usuarioMock = new Usuario();
-        usuarioMock.setCodigo(1L);
-        Caixa caixaMock = new Caixa();
-        caixaMock.setCodigo(1L);
+        Parcela parcelaMock = new Parcela(); parcelaMock.setCodigo(10L); parcelaMock.setValor_restante(100.0);
+
+        Usuario usuarioMock = new Usuario(); usuarioMock.setCodigo(1L);
+        Caixa caixaMock = new Caixa(); caixaMock.setCodigo(1L);
         SecurityContextHolder.getContext().setAuthentication(
-            new UsernamePasswordAuthenticationToken("1", null)
-        );
-        
+            new UsernamePasswordAuthenticationToken("1", null));
+
         when(recebimentos.findById(codRecebimento)).thenReturn(Optional.of(recebimentoMock));
         when(titulos.busca(codTitulo)).thenReturn(Optional.of(tituloMock));
         when(receParcelas.parcelasDoReceber(codRecebimento)).thenReturn(List.of(parcelaMock));
@@ -208,7 +206,17 @@ class RecebimentoServiceTest {
         String resultado = recebimentoService.receber(codRecebimento, vlRecebido, vlAcrescimo, vlDesconto, codTitulo);
 
         assertEquals("Recebimento realizado com sucesso", resultado);
+
+        assertEquals(vlRecebido, recebimentoMock.getValor_recebido());
+        assertEquals(vlAcrescimo, recebimentoMock.getValor_acrescimo());
+        assertEquals(vlDesconto, recebimentoMock.getValor_desconto());
+        assertNotNull(recebimentoMock.getData_processamento());
+
+        verify(parcelas, atLeastOnce()).receber(anyLong(), anyDouble(), anyDouble(), anyDouble());
+        verify(lancamentos).lancamento(any(CaixaLancamento.class));
+        verify(recebimentos).save(recebimentoMock);
     }
+
     
     @Test
     void testReceberComValorSuperiorAoPermitido() {
@@ -272,7 +280,7 @@ class RecebimentoServiceTest {
             recebimentoService.receber(codRecebimento, 100.0, 0.0, 0.0, codTitulo);
         });
 
-        assertEquals("Recebimento não possue parcelas", exception.getMessage());
+        assertEquals("Recebimento não possui parcelas", exception.getMessage());
     }
 
     @Test
@@ -308,5 +316,107 @@ class RecebimentoServiceTest {
 
         assertEquals("Esse recebimento não pode ser removido, pois ele já esta processado", exception.getMessage());
         verify(recebimentos, never()).deleteById(any());
+    }
+    
+    @Test
+    void testReceberComValorZero() {
+        Long codRecebimento = 7L;
+        Long codTitulo = 8L;
+
+        RecebimentoNotFoundException ex = assertThrows(RecebimentoNotFoundException.class, () -> {
+            recebimentoService.receber(codRecebimento, 0.0, 0.0, 0.0, codTitulo);
+        });
+
+        assert(ex.getMessage().contains("Recebimento não encontrado"));
+    }
+
+    @Test
+    void testReceberComTituloCartao() {
+        Long codRecebimento = 9L;
+        Long codTitulo = 10L;
+
+        Recebimento recebimento = new Recebimento();
+        recebimento.setCodigo(codRecebimento);
+        recebimento.setValor_total(50.0);
+
+        Titulo titulo = new Titulo();
+        TituloTipo tipo = new TituloTipo();
+        tipo.setSigla("CARTDEB");
+        titulo.setTipo(tipo);
+
+        Parcela parcela = new Parcela();
+        parcela.setCodigo(1L);
+        parcela.setValor_restante(50.0);
+
+        when(recebimentos.findById(codRecebimento)).thenReturn(Optional.of(recebimento));
+        when(titulos.busca(codTitulo)).thenReturn(Optional.of(titulo));
+        when(receParcelas.parcelasDoReceber(codRecebimento)).thenReturn(List.of(parcela));
+        doNothing().when(cartaoLancamentos).lancamento(any(), any());
+        when(recebimentos.save(any())).thenReturn(recebimento);
+
+        String resultado = recebimentoService.receber(codRecebimento, 50.0, 0.0, 0.0, codTitulo);
+        assert(resultado.contains("sucesso"));
+    }
+
+    @Test
+    void testAbrirRecebimentoComErroNoSave() {
+        Long codPessoa = 11L;
+        Long codParcela = 12L;
+
+        Pessoa pessoa = new Pessoa();
+        pessoa.setCodigo(codPessoa);
+
+        Parcela parcela = new Parcela();
+        parcela.setCodigo(codParcela);
+        parcela.setQuitado(0);
+        parcela.setValor_restante(100.0);
+        Receber receber = new Receber();
+        receber.setPessoa(pessoa);
+        parcela.setReceber(receber);
+
+        when(parcelas.busca(codParcela)).thenReturn(parcela);
+        when(pessoas.buscaPessoa(codPessoa)).thenReturn(Optional.of(pessoa));
+        when(recebimentos.save(any())).thenThrow(new RuntimeException("erro db"));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+            recebimentoService.abrirRecebimento(codPessoa, new String[]{String.valueOf(codParcela)});
+        });
+
+        assert(ex.getMessage().contains("Erro ao receber"));
+    }
+
+    @Test
+    void testRemoverComErroNoDelete() {
+        Long codRecebimento = 13L;
+
+        Recebimento recebimento = new Recebimento();
+        recebimento.setCodigo(codRecebimento);
+
+        when(recebimentos.findById(codRecebimento)).thenReturn(Optional.of(recebimento));
+        doThrow(new RuntimeException("erro delete")).when(recebimentos).deleteById(codRecebimento);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+            recebimentoService.remover(codRecebimento);
+        });
+
+        assert(ex.getMessage().contains("Erro ao remover orçamento"));
+    }
+
+    @Test
+    void testReceberComProcessamentoJaFeito() {
+        Long codRecebimento = 14L;
+        Long codTitulo = 15L;
+
+        Recebimento recebimento = new Recebimento();
+        recebimento.setCodigo(codRecebimento);
+        recebimento.setData_processamento(new Timestamp(System.currentTimeMillis()));
+
+        when(recebimentos.findById(codRecebimento)).thenReturn(Optional.of(recebimento));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+            recebimentoService.receber(codRecebimento, 10.0, 0.0, 0.0, codTitulo);
+        });
+
+        assert(ex.getMessage().contains("Recebimento já está fechado"));
     }
 }
