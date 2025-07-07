@@ -91,6 +91,26 @@ public class VendaServiceTest {
     }
 
     @Test
+    void abreVendaErroSalvar() {
+        Venda venda = mock(Venda.class);
+        when(venda.getCodigo()).thenReturn(null);
+
+        doThrow(new RuntimeException("erro")).when(vendas).save(any(Venda.class));
+
+        assertDoesNotThrow(() -> vendaService.abreVenda(venda));
+    }
+
+
+    @Test
+    void abreVendaExceptionEmSave() {
+        Venda venda = new Venda();
+        venda.setCodigo(null);
+        when(vendas.save(any())).thenThrow(new RuntimeException("Erro"));
+
+        assertDoesNotThrow(() -> vendaService.abreVenda(venda));
+    }
+
+    @Test
     public void buscaPorCodigoTest() {
         VendaFilter vendaFilter = new VendaFilter();
         vendaFilter.setCodigo(1234L);
@@ -167,6 +187,15 @@ public class VendaServiceTest {
     }
 
     @Test
+    void testAddProdutoException() {
+        when(vendas.verificaSituacao(codVenda)).thenReturn(VendaSituacao.ABERTA.toString());
+        doThrow(new RuntimeException("Erro")).when(vendaProdutos).salvar(any());
+
+        String result = vendaService.addProduto(codVenda, codProduto, vlBalanca);
+        assertEquals("ok", result);
+    }
+
+    @Test
     public void testRemoveProdutoVendaAberta() {
         Venda venda = new Venda();
         venda.setSituacao(VendaSituacao.ABERTA);
@@ -193,6 +222,19 @@ public class VendaServiceTest {
     }
 
     @Test
+    public void testRemoveProdutoSituacaoNull() {
+        Venda venda = new Venda();
+        venda.setSituacao(null);
+
+        when(vendas.findByCodigoEquals(codVenda)).thenReturn(venda);
+
+        String result = vendaService.removeProduto(posicaoProd, codVenda);
+
+        assertEquals("ok", result);
+        verify(vendaProdutos, never()).removeProduto(any());
+    }
+
+    @Test
     public void testRemoveProdutoComExcecao() {
         when(vendas.findByCodigoEquals(codVenda)).thenThrow(new RuntimeException("DB failure"));
 
@@ -200,6 +242,14 @@ public class VendaServiceTest {
 
         assertEquals("ok", result);
         verify(vendaProdutos, never()).removeProduto(any());
+    }
+
+    @Test
+    void removeProdutoFindException() {
+        when(vendas.findByCodigoEquals(codVenda)).thenThrow(new RuntimeException("erro"));
+
+        String result = vendaService.removeProduto(posicaoProd, codVenda);
+        assertEquals("ok", result);
     }
 
     @Test
@@ -333,6 +383,85 @@ public class VendaServiceTest {
     }
 
     @Test
+    void fechaVenda_CartaoCredito() {
+        // Setup
+        Venda venda = new Venda();
+        venda.setPessoa(new Pessoa());
+        venda.setSituacao(VendaSituacao.ABERTA);
+
+        when(vendas.verificaSituacao(1L)).thenReturn("ABERTA");
+        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+
+        PagamentoTipo pagamentoTipo = new PagamentoTipo();
+        pagamentoTipo.setFormaPagamento("00");
+
+        Titulo titulo = new Titulo();
+        TituloTipo tipo = new TituloTipo();
+        tipo.setSigla("CARTCRED");
+        titulo.setTipo(tipo);
+
+        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
+
+        doNothing().when(receberServ).cadastrar(any());
+        doNothing().when(cartaoLancamento).lancamento(anyDouble(), any());
+        doNothing().when(vendas).fechaVenda(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), any(), any());
+        doNothing().when(produtos).movimentaEstoque(anyLong(), any());
+
+        String result = vendaService.fechaVenda(
+                1L, 1L, 100.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"}
+        );
+
+        assertEquals("Venda finalizada com sucesso", result);
+    }
+
+    @Test
+    void fechaVenda_VendaAPrazoSemCliente() {
+        Venda venda = new Venda();
+        venda.setSituacao(VendaSituacao.ABERTA);
+        venda.setPessoa(null); // importante
+
+        PagamentoTipo pagamentoTipo = new PagamentoTipo();
+        pagamentoTipo.setFormaPagamento("30");
+
+        Titulo titulo = new Titulo();
+        TituloTipo tipo = new TituloTipo();
+        tipo.setSigla("DIN");
+        titulo.setTipo(tipo);
+
+        when(vendas.verificaSituacao(1L)).thenReturn("ABERTA");
+        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+            vendaService.fechaVenda(1L, 1L, 100.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
+        });
+
+        assertEquals("Venda sem cliente, verifique", ex.getMessage());
+    }
+
+    @Test
+    void fechaVenda_TituloNaoEncontrado() {
+        Venda venda = new Venda();
+        venda.setPessoa(new Pessoa());
+        venda.setSituacao(VendaSituacao.ABERTA);
+
+        when(vendas.verificaSituacao(1L)).thenReturn("ABERTA");
+        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+
+        PagamentoTipo pagamentoTipo = new PagamentoTipo();
+        pagamentoTipo.setFormaPagamento("00");
+
+        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(tituloService.busca(1L)).thenReturn(Optional.empty());
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () -> {
+            vendaService.fechaVenda(1L, 1L, 100.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
+        });
+    }
+
+    @Test
     public void testA_Prazo() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         String[] vlParcelas = {"100.0"};
         String[] formaPagar = {"30"};
@@ -410,6 +539,47 @@ public class VendaServiceTest {
         assertEquals(EstiloLancamento.ENTRADA, lancamento.getEstilo());
         assertEquals(caixa, lancamento.getCaixa().get());
         assertEquals(usuario.getCodigo(), lancamento.getUsuario().getCodigo());
+    }
+
+    @Test
+    void avistaDinheiro_valorDivergente() throws Exception {
+        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class, String[].class,
+                int.class, int.class, Double.class, Double.class);
+        method.setAccessible(true);
+
+        String[] vlParcelas = {"50.0", "40.0"}; // total = 90.0
+        String[] formaPagar = {"00", "00"};
+        Double vlprodutos = 100.0; // diferente do totalParcelas
+        Double acrescimo = 0.0;
+        Double desconto = 0.0;
+
+        InvocationTargetException exception = assertThrows(InvocationTargetException.class, () -> {
+            method.invoke(vendaService, vlprodutos, vlParcelas, formaPagar, 2, 0, acrescimo, desconto);
+        });
+
+        Throwable realException = exception.getCause();
+
+        assertTrue(realException instanceof RuntimeException);
+        assertTrue(realException.getMessage().contains("Valor das parcelas diferente"));
+    }
+
+    @Test
+    void avistaDinheiro_parcelaVazia() throws Exception {
+        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class, String[].class,
+                int.class, int.class, Double.class, Double.class);
+        method.setAccessible(true);
+
+        String[] parcelas = {""};
+        String[] forma = {"00"};
+
+        InvocationTargetException exception = assertThrows(InvocationTargetException.class, () -> {
+            method.invoke(vendaService, 100.0, parcelas, forma, 1, 0, 0.0, 0.0);
+        });
+
+        Throwable realException = exception.getCause();
+
+        assertTrue(realException instanceof RuntimeException);
+        assertTrue(realException.getMessage().contains("Parcela sem valor"));
     }
 
     @Test
