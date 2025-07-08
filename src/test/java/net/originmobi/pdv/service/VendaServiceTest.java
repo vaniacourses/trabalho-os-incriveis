@@ -7,9 +7,8 @@ import net.originmobi.pdv.enumerado.caixa.EstiloLancamento;
 import net.originmobi.pdv.enumerado.caixa.TipoLancamento;
 import net.originmobi.pdv.filter.VendaFilter;
 import net.originmobi.pdv.model.*;
+import net.originmobi.pdv.model.cartao.CartaoLancamento;
 import net.originmobi.pdv.repository.VendaRepository;
-import net.originmobi.pdv.service.UsuarioService;
-import net.originmobi.pdv.service.VendaService;
 import net.originmobi.pdv.service.cartao.CartaoLancamentoService;
 import net.originmobi.pdv.singleton.Aplicacao;
 import net.originmobi.pdv.utilitarios.DataAtual;
@@ -27,10 +26,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.sql.Date;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
@@ -57,7 +56,7 @@ public class VendaServiceTest {
     @Mock private CaixaService caixas;
     @Mock private ProdutoService produtos;
     @Mock private ReceberService receberServ;
-    @Mock private CartaoLancamentoService cartaoLancamento;
+    @Mock private CartaoLancamentoService cartaoLancamentoService;
     @Mock private CaixaLancamentoService lancamentos;
     @Mock private ParcelaService parcelas;
 
@@ -65,6 +64,9 @@ public class VendaServiceTest {
     private final Long codProduto = 10L;
     private final Double vlBalanca = 5.0;
     private final Long posicaoProd = 2L;
+
+    @Mock
+    private CartaoLancamento cartaoLancamento;
 
 
     @BeforeEach
@@ -88,6 +90,66 @@ public class VendaServiceTest {
 
         assertEquals(1234L, vendaService.abreVenda(venda));
         assertNull(vendaService.abreVenda(nullVenda));
+    }
+
+    @Test
+    void testAbreVendaAtualizaDadosVenda() {
+        Venda vendaExistente = new Venda();
+        vendaExistente.setCodigo(123L);
+        vendaExistente.setPessoa(new Pessoa());
+        vendaExistente.setObservacao("Observação");
+
+        vendaService.abreVenda(vendaExistente);
+
+        verify(vendas).updateDadosVenda(
+                eq(vendaExistente.getPessoa()),
+                eq("Observação"),
+                eq(123L)
+        );
+
+        verify(vendas, never()).save(any());
+    }
+
+    @Test
+    void testAbreVendaSalvaVendaDadosDefault() {
+        Venda novaVenda = new Venda();
+        when(usuarioService.buscaUsuario(any())).thenReturn(mock(Usuario.class));
+
+        vendaService.abreVenda(novaVenda);
+
+        assertNotNull(novaVenda.getData_cadastro());
+        assertEquals(VendaSituacao.ABERTA, novaVenda.getSituacao());
+        assertNotNull(novaVenda.getUsuario());
+        assertEquals(0.0, novaVenda.getValor_produtos());
+
+        verify(vendas).save(novaVenda);
+    }
+
+    @Test
+    void testAbreVendaWhenCodigoIsNull() {
+        Venda venda = new Venda();
+        venda.setCodigo(null);
+
+        Aplicacao aplicacao = Aplicacao.getInstancia();
+
+        Usuario usuarioMock = new Usuario();
+        when(usuarioService.buscaUsuario(aplicacao.getUsuarioAtual())).thenReturn(usuarioMock);
+        when(vendas.save(any(Venda.class))).thenAnswer(invocation -> {
+            Venda v = invocation.getArgument(0);
+            v.setCodigo(123L);
+            return v;
+        });
+
+        Long codigo = vendaService.abreVenda(venda);
+
+        assertNotNull(codigo);
+        assertEquals(123L, codigo);
+        assertEquals(VendaSituacao.ABERTA, venda.getSituacao());
+        assertEquals(usuarioMock, venda.getUsuario());
+        assertEquals(0.0, venda.getValor_produtos());
+        assertNotNull(venda.getData_cadastro());
+
+        verify(vendas).save(venda);
     }
 
     @Test
@@ -344,6 +406,114 @@ public class VendaServiceTest {
     }
 
     @Test
+    public void testFechaVendaSemValorParcelas() {
+        Venda venda = new Venda();
+        venda.setValor_produtos(-100.0);
+        when(vendas.findByCodigoEquals(any())).thenReturn(venda);
+
+        assertThrows(RuntimeException.class, () -> {
+            vendaService.fechaVenda(1L, 1L, 0.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
+        }, "Venda sem valor, verifique");
+    }
+
+    @Test
+    public void testFechaVendaValorNegativo() {
+        Venda venda = new Venda();
+        venda.setValor_produtos(-100.0);
+        venda.setCodigo(1L);
+        venda.setSituacao(VendaSituacao.ABERTA);
+        when(vendas.findByCodigoEquals(any())).thenReturn(venda);
+
+        assertThrows(RuntimeException.class, () -> {
+            vendaService.fechaVenda(1L, 1L, -100.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
+        }, "Venda sem valor, verifique");
+    }
+
+//    @Test
+//    void deveLancarCartaoDebito_QuandoTituloForCartDeb() {
+//        // Arrange
+//        Long vendaId = 1L;
+//        Long pagamentoTipoId = 3L;
+//
+//        Pessoa pessoa = new Pessoa();
+//        pessoa.setNome("Maria");
+//        pessoa.setCodigo(123L); // ✅ IMPORTANT!
+//
+//        Venda venda = new Venda();
+//        venda.setCodigo(1L); // ✅ REQUIRED
+//        venda.setPessoa(pessoa);
+//        venda.setSituacao(VendaSituacao.ABERTA);
+//
+//        Titulo titulo = new Titulo();
+//        TituloTipo tipo = new TituloTipo();
+//        tipo.setSigla("CARTDEB");
+//        titulo.setTipo(tipo);
+//        titulo.setCodigo(10L); // ✅ Also needed!
+//
+//        PagamentoTipo pagamentoTipo =new PagamentoTipo("A", net.originmobi.pdv.enumerado.TituloTipo.CARTDEB.toString(), new Date(10000L));
+//
+//        titulo.setTipo(tipo);
+//        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+//        when(vendas.findByCodigoEquals(vendaId)).thenReturn(venda);
+//        when(formaPagamentos.busca(pagamentoTipoId)).thenReturn(pagamentoTipo);
+//        when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
+//        when(caixas.caixaIsAberto()).thenReturn(true);
+//
+//        String[] valoresParcelas = {"100.0"};
+//        String[] titulosIds = {"1"};
+//
+//        try {
+//            vendaService.fechaVenda(
+//                    vendaId,
+//                    pagamentoTipoId,
+//                    100.0,
+//                    0.0,
+//                    0.0,
+//                    valoresParcelas,
+//                    titulosIds
+//            );
+//        } catch (RuntimeException e) {
+//            System.out.println("ERRO: " + e.getMessage());
+//            throw e; // rethrow to let the test fail
+//        }
+//
+//
+//        // Assert: The branch was hit if cartaLancamento.lancamento was called
+//        verify(cartaoLancamentoService).lancamento(100.0, Optional.of(titulo));
+//    }
+
+    @Test
+    void fechaVendaPessoaNula() {
+        // Arrange
+        Long vendaId = 1L;
+        Long pagamentoTipoId = 2L;
+
+        Venda venda = new Venda();
+        venda.setCodigo(vendaId);
+        venda.setSituacao(VendaSituacao.ABERTA);
+        venda.setPessoa(null);
+
+        when(vendas.findByCodigoEquals(vendaId)).thenReturn(venda);
+        when(formaPagamentos.busca(pagamentoTipoId)).thenReturn(new PagamentoTipo("A","Crédito", new Date(10000L)));
+        when(tituloService.busca(anyLong())).thenReturn(Optional.of(mock(Titulo.class)));
+
+        // Act & Assert
+        RuntimeException ex = assertThrows(RuntimeException.class, () ->
+                vendaService.fechaVenda(
+                        vendaId,
+                        pagamentoTipoId,
+                        100.0,
+                        0.0,
+                        0.0,
+                        new String[]{"100.0"},
+                        new String[]{"1"}
+                )
+        );
+
+        assertEquals("Venda sem cliente, verifique", ex.getMessage());
+    }
+
+    @Test
     public void testFechaVenda_SemCaixaAberto() {
         Venda venda = new Venda();
         venda.setCodigo(1L);
@@ -404,7 +574,7 @@ public class VendaServiceTest {
         when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
 
         doNothing().when(receberServ).cadastrar(any());
-        doNothing().when(cartaoLancamento).lancamento(anyDouble(), any());
+        doNothing().when(cartaoLancamentoService).lancamento(anyDouble(), any());
         doNothing().when(vendas).fechaVenda(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), any(), any());
         doNothing().when(produtos).movimentaEstoque(anyLong(), any());
 

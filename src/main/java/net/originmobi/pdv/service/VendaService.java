@@ -296,7 +296,7 @@ public class VendaService {
 
 		// pega a soma de todas as parcelas para comparar com o valor recebido
 		for (int aux = 0; aux < vlParcelas.length; aux++)
-			totalParcelas += Double.valueOf(vlParcelas[i]);
+			totalParcelas += Double.valueOf(vlParcelas[aux]);
 
 		if (!totalParcelas.equals(vlprodutos))
 			throw new RuntimeException("Valor das parcelas diferente do valor total de produtos, verifique");
