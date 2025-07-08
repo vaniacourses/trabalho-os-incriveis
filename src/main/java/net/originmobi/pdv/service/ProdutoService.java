@@ -45,7 +45,7 @@ public class ProdutoService {
 	}
 
 	public Page<Produto> filter(ProdutoFilter filter, Pageable pageable) {
-		String descricao = filter.getDescricao() == null ? "%" : filter.getDescricao();
+		String descricao = filter.getDescricao() == null ? "" : filter.getDescricao();
 		return produtos.findByDescricaoContaining(descricao, pageable);
 	}
 

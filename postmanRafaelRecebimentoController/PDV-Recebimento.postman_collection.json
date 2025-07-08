@@ -1,0 +1,272 @@
+{
+	"info": {
+		"_postman_id": "50fac338-9bab-4ec3-b332-e9cded4da15f",
+		"name": "PDV-Recebimento",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "39752790"
+	},
+	"item": [
+		{
+			"name": "Recebimento",
+			"item": [
+				{
+					"name": "Recebimento existente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Retornou a página de recebimento do código 1\", function () {",
+									"    pm.expect(pm.response.text()).to.include(\"Recebimento\");",
+									"    pm.expect(pm.response.text()).to.include('value=\"1\"');",
+									"    pm.expect(pm.response.text()).to.include(\"Jo&atilde;o Rafael Mendes Nogueira\");",
+									"});",
+									"",
+									"pm.test(\"Testa tempo de resposta\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(300);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "JSESSIONID=\n8F4BC04C4C9B0FCC0DE94247B7BDBE2F",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/recebimento/1",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"recebimento",
+								"1"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Recebimento nao existente",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code é 500 para recebimento inexistente\", function () {",
+									"    pm.response.to.have.status(500);",
+									"});",
+									"",
+									"pm.test(\"Retorno JSON contém mensagem de erro específica de binding\", function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json).to.have.property(\"message\");",
+									"    pm.expect(json.message).to.include(\"converted to null\");",
+									"    pm.expect(json.path).to.eql(\"/recebimento/2\");",
+									"});",
+									"",
+									"pm.test(\"Testa tempo de resposta\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(300);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "JSESSIONID=\n8F4BC04C4C9B0FCC0DE94247B7BDBE2F",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/recebimento/2",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"recebimento",
+								"2"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Recebimento válido",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status 500 recebimento sem parcelas\", function () {",
+									"    pm.response.to.have.status(500);",
+									"});",
+									"",
+									"pm.test(\"Body contém erro de recebimento sem parcelas\", function () {",
+									"    const json = pm.response.json();",
+									"    pm.expect(json.message).to.include(\"Recebimento não possui parcelas\");",
+									"});",
+									"",
+									"pm.test(\"Testa tempo de resposta\", function () {",
+									"    pm.expect(pm.response.responseTime).to.be.below(300);",
+									"});"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "JSESSIONID=\n8F4BC04C4C9B0FCC0DE94247B7BDBE2F",
+								"type": "text",
+								"disabled": true
+							}
+						],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": [
+								{
+									"key": "receber",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "titulo",
+									"value": "1",
+									"type": "text"
+								},
+								{
+									"key": "acrescimo",
+									"value": "0.00",
+									"type": "text"
+								},
+								{
+									"key": "desconto",
+									"value": "0.00",
+									"type": "text"
+								},
+								{
+									"key": "vlrecebido",
+									"value": "10.00",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8080/recebimento/",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"recebimento",
+								""
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Login",
+			"item": [
+				{
+					"name": "Logar",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Testa tempo de resposta\", function () {\r",
+									"    pm.expect(pm.response.responseTime).to.be.below(300);\r",
+									"});\r",
+									"\r",
+									"const html = pm.response.text();\r",
+									"\r",
+									"pm.test(\"Testa se status 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Testa se titulo da pagina aparece\", function () {\r",
+									"    pm.expect(html).to.include(\"<title>PDV</title>\");\r",
+									"});\r",
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "user",
+									"value": "gerente",
+									"type": "text"
+								},
+								{
+									"key": "password",
+									"value": "123",
+									"type": "text"
+								}
+							]
+						},
+						"url": {
+							"raw": "http://localhost:8080/login",
+							"protocol": "http",
+							"host": [
+								"localhost"
+							],
+							"port": "8080",
+							"path": [
+								"login"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}
