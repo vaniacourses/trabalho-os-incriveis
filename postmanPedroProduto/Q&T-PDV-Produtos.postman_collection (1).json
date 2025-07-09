@@ -1,0 +1,335 @@
+{
+	"info": {
+		"_postman_id": "57c6dd38-3ead-4a3e-85f3-44bbcf4e62d2",
+		"name": "Q&T-PDV-Produtos",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "32208999"
+	},
+	"item": [
+		{
+			"name": "TestaLogin",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.environment.set(\"texto\", \"gerente\");\r",
+							"pm.environment.set(\"password\", \"123\");\r",
+							"\r",
+							"pm.test(\"TestaTitulo\", function () {\r",
+							"    var response = pm.response.text();\r",
+							"    var titleRegex = /<title>(.*?)<\\/title>/i;\r",
+							"    var match = response.match(titleRegex);\r",
+							"    var title = match[1];\r",
+							"    pm.expect(title).to.eql(\"PDV\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaLinkProdutos\", function () {\r",
+							"   var response = pm.response.text();\r",
+							"   pm.expect(response).to.include('<a href=\"/produto\" class=\"opcoes\">Produto</a>');\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaAcessibilidade\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"    pm.response.to.have.header(\"Content-Type\", \"text/html;charset=UTF-8\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaResponseTime\", function () {\r",
+							"    pm.expect(pm.response.responseTime).to.be.below(100);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaCampos\", function () {\r",
+							"    var login = pm.request.body.formdata.get(\"user\");\r",
+							"    var senha = pm.request.body.formdata.get(\"password\");\r",
+							"\r",
+							"    pm.expect(login).to.eql(\"gerente\");\r",
+							"    pm.expect(senha).to.eql(\"123\");\r",
+							"});\r",
+							"\r",
+							"\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "user",
+							"value": "gerente",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "123",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/login",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TestaListaProdutos",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"TestaAcessibilidade\", function () {\r",
+							"    pm.response.to.have.status(\"OK\");\r",
+							"    pm.response.to.have.header(\"Content-Type\", \"text/html;charset=UTF-8\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaExisteProduto\", function(){\r",
+							"    var response = pm.response.text();\r",
+							"    pm.expect(response).to.include(\"1\");    \r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaListaProdutos\", function () {\r",
+							"    var response = pm.response.text();\r",
+							"    pm.expect(response).to.include(\"Maça\");\r",
+							"});\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/produto",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"produto"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TestaEditarProduto",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"TestaAcessibilidade\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"    pm.response.to.have.header(\"Content-Type\", \"text/html;charset=UTF-8\");\r",
+							"});\r",
+							"\r",
+							"const $ = cheerio.load(pm.response.text());\r",
+							"const $selected = $('[id=valorVenda]').attr('value');\r",
+							"\r",
+							"pm.test(\"TestaCustoProduto\", function () {\r",
+							"    var value = parseInt($selected);\r",
+							"    pm.expect(value).to.be.not.null;\r",
+							"    pm.expect(value).to.be.at.least(5);\r",
+							"    pm.expect(value).to.be.at.most(10);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaInputCodigo\", function () {   \r",
+							"    var inputValue = $('input').eq(1);\r",
+							"    pm.expect(inputValue.attr('value')).to.eql('1');\r",
+							"    pm.expect(pm.response.text()).to.include(\"disabled\");\r",
+							"});\r",
+							"\r",
+							"\r",
+							"\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"url": {
+					"raw": "http://localhost:8080/produto/1",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"produto",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TestaBuscarProduto",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.test(\"TestaAcessibilidade\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"    pm.response.to.have.header(\"Content-Type\", \"text/html;charset=UTF-8\");\r",
+							"});\r",
+							"\r",
+							"const $ = cheerio.load(pm.response.text());\r",
+							"const $selected = $('[class=text-center]').eq(7).text();\r",
+							"\r",
+							"pm.test(\"TestaCustoProdutoBuscado\", function () {\r",
+							"    var value = $selected;\r",
+							"    pm.expect(value).to.be.not.null;\r",
+							"    pm.expect(value).to.eql('R$ 9,00');\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaBuscaValue\", function () {\r",
+							"    var $ = cheerio.load(pm.response.text());\r",
+							"    var element = $('input');\r",
+							"    pm.expect(element).to.not.be.null;\r",
+							"    pm.expect(element.attr('value')).include('Maça');\r",
+							"});\r",
+							"\r",
+							"\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://localhost:8080/produto?descricao=Maça",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"produto"
+					],
+					"query": [
+						{
+							"key": "descricao",
+							"value": "Maça"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TestaAdicionarProduto",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"pm.environment.set(\"descricao\", \"Guarana 2L\");\r",
+							"pm.environment.set(\"valorVenda\", \"8,60\");\r",
+							"\r",
+							"pm.test(\"TestaAcessibilidade\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"    pm.response.to.have.header(\"Content-Type\", \"text/html;charset=UTF-8\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaFormulario\", function () {\r",
+							"    var response = pm.response.text();\r",
+							"    pm.expect(response).to.include(\"<form\");\r",
+							"});\r",
+							"\r",
+							"pm.test(\"TestaBotao\", function () {\r",
+							"    const $ = cheerio.load(pm.response.text());\r",
+							"    const $button = $('[name=enviar]').attr('value');\r",
+							"    pm.expect($button).to.not.be.null;\r",
+							"    pm.expect($button).to.include(\"Salvar\");\r",
+							"});\r",
+							"\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": []
+				},
+				"url": {
+					"raw": "http://localhost:8080/produto/form",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"produto",
+						"form"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

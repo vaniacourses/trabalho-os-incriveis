@@ -2,36 +2,38 @@ $(function() {
 
 	// Responsável por cadastrar a nota fiscal
 	$('.btn-cria-nota').on('click', function(event) {
-		event.preventDefault();
+	    event.preventDefault();
 
-		var dados = $('#form_notafiscal').serialize();
+	    var dados = $('#form_notafiscal').serialize();
+	    var link = $('#link-notafiscal').attr('href');
 
-		var link = $('#link-notafiscal').attr('href');
+	    $.ajax({
+	        url: link,
+	        type: 'post',
+	        data: dados,
+	        
+	        beforeSend: function() {
+	            $(".carrega").html("<p class='carregando'></p>");
+	        },
+	        
+	        success: function(response) {
+	            $(".carrega").empty();
+	            
+	            console.log("Nota criada com sucesso. Redirecionando para o ID: " + response.id);
+	            
+	            window.location.href = "/notafiscal/" + response.id;
+	        },
 
-		$.ajax({
-			url : link,
-			type : 'post',
-			data : dados,
-			
-			beforeSend : function() {
-				$(".carrega").html(
-				"<p class='carregando'></p>");
-			},
-			
-			success : function(e) {
-				$(".carrega").empty();
-				var a = e.replace('{Location=[', '');
-				var b = a.replace(']}', '');
-				console.log(b);
-				window.location.href = b;
-			},
-
-			error : function(jqXHR, status, error) {
-				$(".carrega").empty();
-				var err = eval("(" + jqXHR.responseText + ")");
-				alert(err.message);
-			}
-		});
+	        error: function(jqXHR, status, error) {
+	            $(".carrega").empty();
+	            try {
+	                var err = JSON.parse(jqXHR.responseText);
+	                alert(err.message);
+	            } catch (e) {
+	                alert("Ocorreu um erro inesperado.");
+	            }
+	        }
+	    });
 	});
 
 	// Responsável por inserir itens na nota
