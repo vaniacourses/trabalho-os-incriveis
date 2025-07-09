@@ -1,0 +1,278 @@
+{
+  "info": {
+    "_postman_id": "7cfe3ae9-8ff7-49cf-9edb-c3fde6c440b2",
+    "name": "PDV-Venda",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "39752790"
+  },
+  "item": [
+    {
+		"name": "Login",
+		"item": [
+			{
+				"name": "Logar",
+				"event": [
+					{
+						"listen": "prerequest",
+						"script": {
+							"exec": [
+								""
+							],
+							"type": "text/javascript",
+							"packages": {}
+						}
+					},
+					{
+						"listen": "test",
+						"script": {
+							"exec": [
+								"pm.test(\"Testa tempo de resposta\", function () {\r",
+								"    pm.expect(pm.response.responseTime).to.be.below(300);\r",
+								"});\r",
+								"\r",
+								"const html = pm.response.text();\r",
+								"\r",
+								"pm.test(\"Testa se status 200\", function () {\r",
+								"    pm.response.to.have.status(200);\r",
+								"});\r",
+								"\r",
+								""
+							],
+							"type": "text/javascript",
+							"packages": {}
+						}
+					}
+				],
+				"request": {
+					"method": "POST",
+					"header": [],
+					"body": {
+						"mode": "formdata",
+						"formdata": [
+							{
+								"key": "user",
+								"value": "gerente",
+								"type": "text"
+							},
+							{
+								"key": "password",
+								"value": "123",
+								"type": "text"
+							}
+						]
+					},
+					"url": {
+						"raw": "http://localhost:8080/login",
+						"protocol": "http",
+						"host": [
+							"localhost"
+						],
+						"port": "8080",
+						"path": [
+							"login"
+						]
+					}
+				},
+				"response": []
+			}
+		]
+	},
+    {
+      "name": "Venda",
+      "item": [
+        {
+          "name": "Abrir Venda",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 ao abrir venda\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Testa tempo de resposta\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(300);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "observacao",
+                  "value": "Test venda",
+                  "type": "text"
+                },
+                {
+                  "key": "valor_produtos",
+                  "value": "100.00",
+                  "type": "text"
+                },
+                {
+                  "key": "valor_desconto",
+                  "value": "10.00",
+                  "type": "text"
+                },
+                {
+                  "key": "valor_acrescimo",
+                  "value": "5.00",
+                  "type": "text"
+                },
+                {
+                  "key": "pessoa.codigo",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "usuario.codigo",
+                  "value": "1",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:8080/venda",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "venda"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buscar Venda por C\u00f3digo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 200 ao buscar venda\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Retorna dados da venda\", function () {",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.include(\"pedido\");",
+                  "});",
+                  "",
+                  "pm.test(\"Testa tempo de resposta\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(300);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:8080/venda/1",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "venda",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Fechar Venda com erro",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status 500 ao fechar venda com dados inv\u00e1lidos\", function () {",
+                  "    pm.response.to.have.status(500);",
+                  "});",
+                  "",
+                  "pm.test(\"Mensagem de erro em HTML\", function () {",
+                  "    const contentType = pm.response.headers.get(\"Content-Type\");",
+                  "    pm.expect(contentType).to.include(\"text/html\");",
+                  "    pm.expect(pm.response.text().toLowerCase()).to.include(\"erro\");",
+                  "});",
+                  "",
+                  "pm.test(\"Testa tempo de resposta\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(300);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "venda",
+                  "value": "9999",
+                  "type": "text"
+                },
+                {
+                  "key": "pagamentotipo",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "valor_produtos",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "valor_desconto",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "valor_acrescimo",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "valores",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "titulos",
+                  "value": "",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "http://localhost:8080/venda/fechar",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "8080",
+              "path": [
+                "venda",
+                "fechar"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
