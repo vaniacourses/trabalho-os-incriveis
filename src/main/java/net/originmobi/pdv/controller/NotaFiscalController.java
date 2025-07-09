@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -15,9 +14,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.ModelAndView;
-import org.springframework.web.util.UriComponents;
-import org.springframework.web.util.UriComponentsBuilder;
-
+import org.springframework.web.servlet.mvc.support.RedirectAttributes; 
+import java.util.Collections; 
+import org.springframework.http.ResponseEntity; 
+import org.springframework.http.HttpStatus; 
 import net.originmobi.pdv.enumerado.notafiscal.NotaFiscalTipo;
 import net.originmobi.pdv.model.FreteTipo;
 import net.originmobi.pdv.model.NotaFiscal;
@@ -34,7 +34,6 @@ import net.originmobi.pdv.service.notafiscal.NotaFiscalService;
 public class NotaFiscalController {
 
 	private static final String NOTAFISCAL_LIST = "notafiscal/list";
-
 	private static final String NOTAFISCAL_FORM = "notafiscal/form";
 
 	@Autowired
@@ -60,29 +59,29 @@ public class NotaFiscalController {
 	}
 
 	@RequestMapping(method = RequestMethod.POST)
-	public @ResponseBody String criaNota(@RequestParam Map<String, String> request, UriComponentsBuilder b) {
-		UriComponents uri = b.path("/notafiscal/").build();
-		HttpHeaders headers = new HttpHeaders();
-		headers.setLocation(uri.toUri());
-		
-		
-		if(request.get("natureza_operacao").isEmpty())
-			throw new RuntimeException("Favor, informe a natureza da operação");
-		
-		if(request.get("destinatario").isEmpty())
-			throw new RuntimeException("Favor, informe o destinatário");
-		
-		
-		Long coddesti = Long.decode(request.get("destinatario"));
-		String natureza = request.get("natureza_operacao");
-		String tipo = request.get("tipo");
-		
-		NotaFiscalTipo notaTipo = tipo.equals(NotaFiscalTipo.ENTRADA) ? NotaFiscalTipo.ENTRADA : NotaFiscalTipo.SAIDA;
+	@ResponseBody // Adicione o @ResponseBody de volta
+	public ResponseEntity<Map<String, String>> criaNota(@RequestParam Map<String, String> request) {
+	    
+	    if(request.get("natureza_operacao").isEmpty())
+	        throw new RuntimeException("Favor, informe a natureza da operação");
+	    
+	    if(request.get("destinatario").isEmpty())
+	        throw new RuntimeException("Favor, informe o destinatário");
+	    
+	    
+	    Long coddesti = Long.decode(request.get("destinatario"));
+	    String natureza = request.get("natureza_operacao");
+	    String tipo = request.get("tipo");
+	    
+	    NotaFiscalTipo notaTipo = NotaFiscalTipo.valueOf(tipo);
 
-		String codigo = null;
-		codigo = notasFiscais.cadastrar(coddesti, natureza, notaTipo);
+	    String codigo = notasFiscais.cadastrar(coddesti, natureza, notaTipo);
 
-		return headers.toString() + codigo;
+	    // Cria um mapa para ser convertido em JSON. Ex: { "id": "7" }
+	    Map<String, String> response = Collections.singletonMap("id", codigo);
+
+	    // Retorna uma resposta HTTP 201 Created com o JSON no corpo
+	    return new ResponseEntity<>(response, HttpStatus.CREATED);
 	}
 
 	@GetMapping("{codigo}")
@@ -103,7 +102,6 @@ public class NotaFiscalController {
 	
 	@GetMapping
 	public ModelAndView lista() {
-		System.out.println("veio aqui");
 		ModelAndView mv = new ModelAndView(NOTAFISCAL_LIST);
 		mv.addObject("notas", notasFiscais.lista());
 		return mv;

@@ -15,7 +15,6 @@ import net.originmobi.pdv.service.notafiscal.NotaFiscalService;
 
 public class ConversorXmlNfe implements Converter {
 
-	public NotaFiscalService nfService;
 	private String chaveNfeRetorno = "";
 
 	@Override
@@ -47,10 +46,8 @@ public class ConversorXmlNfe implements Converter {
 		// cria chave acesso
 		String chaveNfe = ufEmissor + "1805" + cnpjEmissor + "55" + serie + numeroNf + 1 + cNF;
 
-		nfService = new NotaFiscalService();
-
-		// gera digito verificador
-		Integer cDV = nfService.geraDV(chaveNfe);
+		// Chamada direta ao método estático
+		Integer cDV = NotaFiscalService.geraDV(chaveNfe);
 
 		chaveNfeRetorno = chaveNfe + cDV;
 

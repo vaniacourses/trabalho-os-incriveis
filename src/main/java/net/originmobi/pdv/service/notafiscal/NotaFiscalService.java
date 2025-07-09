@@ -10,6 +10,7 @@ import java.nio.file.Paths;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map; // Importe java.util.Map
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -36,9 +37,11 @@ public class NotaFiscalService {
     private final EmpresaService empresas;
     private final NotaFiscalTotaisServer notaTotais;
     private final PessoaService pessoas;
+    // Removida a injeção de GeraXmlNfe
 
     private static final String CAMINHO_XML = Paths.get("src", "main", "resources", "xmlNfe").toString();
 
+    // Construtor revertido ao original
     public NotaFiscalService(
         NotaFiscalRepository notasFiscais,
         EmpresaService empresas,
@@ -115,7 +118,7 @@ public class NotaFiscalService {
         }
     }
 
-    public Integer geraDV(String codigo) {
+    public static Integer geraDV(String codigo) {
         int total = 0;
         int peso = 2;
 
@@ -134,6 +137,7 @@ public class NotaFiscalService {
             String contexto = new File(".").getCanonicalPath();
             Path diretorio = Paths.get(contexto, CAMINHO_XML);
             File file = new File(diretorio.toFile(), chaveNfe + ".xml");
+			file.getParentFile().mkdirs(); // Garante que o diretório exista
 
             try (PrintWriter out = createPrintWriter(file)) {
                 out.write(xml);
@@ -150,7 +154,7 @@ public class NotaFiscalService {
             String contexto = new File(".").getCanonicalPath();
             Path path = Paths.get(contexto, CAMINHO_XML, chaveAcesso + ".xml");
 
-            Files.delete(path);
+            Files.deleteIfExists(path);
             return true;
         } catch (IOException e) {
             return false;
@@ -163,7 +167,19 @@ public class NotaFiscalService {
 
     public void emitir(NotaFiscal notaFiscal) {
         GeraXmlNfe geraXmlNfe = new GeraXmlNfe();
-        String chaveNfe = geraXmlNfe.gerarXML(notaFiscal);
+        
+        Map<String, String> resultadoXml = geraXmlNfe.gerarXML(notaFiscal);
+        String chaveNfe = resultadoXml.get("chave");
+        String xml = resultadoXml.get("xml");
+
+        if (notaFiscal.getChave_acesso() != null && !notaFiscal.getChave_acesso().isEmpty()) {
+            this.removeXml(notaFiscal.getChave_acesso());
+        }
+
+        // Salva o novo XML
+        this.salvaXML(xml, chaveNfe);
+        
+        // Atualiza a entidade e salva no banco
         notaFiscal.setChave_acesso(chaveNfe);
         notasFiscais.save(notaFiscal);
     }
