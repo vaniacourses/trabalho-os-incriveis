@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Date;
@@ -11,12 +12,12 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import net.originmobi.pdv.enumerado.notafiscal.NotaFiscalTipo;
+import net.originmobi.pdv.exception.NotaFiscalException;
 import net.originmobi.pdv.model.Empresa;
 import net.originmobi.pdv.model.FreteTipo;
 import net.originmobi.pdv.model.NotaFiscal;
@@ -31,164 +32,143 @@ import net.originmobi.pdv.xml.nfe.GeraXmlNfe;
 @Service
 public class NotaFiscalService {
 
-	@Autowired
-	private NotaFiscalRepository notasFiscais;
+    private final NotaFiscalRepository notasFiscais;
+    private final EmpresaService empresas;
+    private final NotaFiscalTotaisServer notaTotais;
+    private final PessoaService pessoas;
 
-	@Autowired
-	private EmpresaService empresas;
+    private static final String CAMINHO_XML = Paths.get("src", "main", "resources", "xmlNfe").toString();
 
-	@Autowired
-	private NotaFiscalTotaisServer notaTotais;
+    public NotaFiscalService(
+        NotaFiscalRepository notasFiscais,
+        EmpresaService empresas,
+        NotaFiscalTotaisServer notaTotais,
+        PessoaService pessoas
+    ) {
+        this.notasFiscais = notasFiscais;
+        this.empresas = empresas;
+        this.notaTotais = notaTotais;
+        this.pessoas = pessoas;
+    }
 
-	@Autowired
-	private PessoaService pessoas;
+    protected PrintWriter createPrintWriter(File file) throws IOException {
+        return new PrintWriter(new FileWriter(file));
+    }
 
-	private LocalDate dataAtual;
+    public List<NotaFiscal> lista() {
+        return notasFiscais.findAll();
+    }
 
-	private static final String CAMINHO_XML = "/src/main/resources/xmlNfe/";
+    @Transactional(readOnly = false, propagation = Propagation.REQUIRED)
+    public String cadastrar(Long coddesti, String natureza, NotaFiscalTipo tipo) {
+        Empresa empresa = empresas.verificaEmpresaCadastrada()
+                .orElseThrow(() -> new NotaFiscalException("Nenhuma empresa cadastrada, verifique"));
 
-	public List<NotaFiscal> lista() {
-		return notasFiscais.findAll();
-	}
+        Pessoa pessoa = pessoas.buscaPessoa(coddesti)
+                .orElseThrow(() -> new NotaFiscalException("Favor, selecione o destinatário"));
 
-	@Transactional(readOnly = false, propagation = Propagation.REQUIRED)
-	public String cadastrar(Long coddesti, String natureza, NotaFiscalTipo tipo) {
-		Optional<Empresa> empresa = empresas.verificaEmpresaCadastrada();
-		Optional<Pessoa> pessoa = pessoas.buscaPessoa(coddesti);
+        FreteTipo frete = new FreteTipo();
+        frete.setCodigo(4L);
 
-		if (!empresa.isPresent())
-			throw new RuntimeException("Nenhuma empresa cadastrada, verifique");
+        NotaFiscalFinalidade finalidade = new NotaFiscalFinalidade();
+        finalidade.setCodigo(1L);
 
-		if (!pessoa.isPresent())
-			throw new RuntimeException("Favor, selecione o destinatário");
+        int modelo = 55;
+        int serie = Optional.ofNullable(empresa.getParametro())
+                .map(p -> p.getSerie_nfe())
+                .orElseThrow(() -> new NotaFiscalException("Série NFe não encontrada"));
 
-		// prepara informações iniciais da nota fiscal
-		FreteTipo frete = new FreteTipo();
-		frete.setCodigo(4L);
-		NotaFiscalFinalidade finalidade = new NotaFiscalFinalidade();
-		finalidade.setCodigo(1L);
-		int modelo = 55;
-		int serie = empresa.map(Empresa::getParametro).get().getSerie_nfe();
+        if (serie == 0) {
+            throw new NotaFiscalException("Não existe série cadastrada para o modelo 55, verifique");
+        }
 
-		if (empresa.map(Empresa::getParametro).get().getSerie_nfe() == 0)
-			throw new RuntimeException("Não existe série cadastrada para o modelo 55, verifique");
+        int tipoEmissao = 1;
+        LocalDate dataAtual = LocalDate.now();
+        Date cadastro = Date.valueOf(dataAtual);
+        String verProc = "0.0.1-beta";
+        int tipoAmbiente = empresa.getParametro().getAmbiente();
 
-		// opção 1 é emissão normal, as outras opções (2, 3, 4, 5) são para contigência
-		int tipoEmissao = 1;
-		dataAtual = LocalDate.now();
-		Date cadastro = Date.valueOf(dataAtual);
-		String verProc = "0.0.1-beta";
-		int tipoAmbiente = empresa.get().getParametro().getAmbiente();
+        NotaFiscalTotais totais = new NotaFiscalTotais(
+                0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+        );
 
-		// cadastra os totais iniciais da nota fiscal
-		NotaFiscalTotais totais = new NotaFiscalTotais(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-		try {
-			notaTotais.cadastro(totais);
-		} catch (Exception e) {
-			throw new RuntimeException("Erro ao cadastrar a nota, chame o suporte");
-		}
+        try {
+            notaTotais.cadastro(totais);
+        } catch (Exception e) {
+            throw new NotaFiscalException("Erro ao cadastrar os totais da nota fiscal", e);
+        }
 
-		// cadastra a nota fiscal
-		NotaFiscal nota = null;
-		try {
-			// pega ultima nota cadastradas + 1
-			Long numeroNota = notasFiscais.buscaUltimaNota(serie);
+        try {
+            Long numeroNota = notasFiscais.buscaUltimaNota(serie);
 
-			NotaFiscal notaFiscal = new NotaFiscal(numeroNota, modelo, tipo, natureza, serie, empresa.get(),
-					pessoa.get(), tipoEmissao, verProc, frete, finalidade, totais, tipoAmbiente, cadastro);
+            NotaFiscal notaFiscal = new NotaFiscal(
+                    numeroNota, modelo, tipo, natureza, serie,
+                    empresa, pessoa, tipoEmissao, verProc,
+                    frete, finalidade, totais, tipoAmbiente, cadastro
+            );
 
-			nota = notasFiscais.save(notaFiscal);
+            NotaFiscal nota = notasFiscais.save(notaFiscal);
+            return nota.getCodigo().toString();
 
-		} catch (Exception e) {
-			System.out.println("Erro " + e);
-			throw new RuntimeException("Erro ao cadastrar a nota, chame o suporte");
-		}
+        } catch (Exception e) {
+            throw new NotaFiscalException("Erro ao cadastrar a nota fiscal", e);
+        }
+    }
 
-		return nota.getCodigo().toString();
-	}
+    public Integer geraDV(String codigo) {
+        int total = 0;
+        int peso = 2;
 
-	public Integer geraDV(String codigo) {
-		try {
-			int total = 0;
-			int peso = 2;
+        for (int i = codigo.length() - 1; i >= 0; i--) {
+            int digito = Character.getNumericValue(codigo.charAt(i));
+            total += digito * peso;
+            peso = (peso == 9) ? 2 : peso + 1;
+        }
 
-			for (int i = 0; i < codigo.length(); i++) {
-				total += (codigo.charAt((codigo.length() - 1) - i) - '0') * peso;
-				peso++;
-				if (peso == 10) {
-					peso = 2;
-				}
-			}
-			int resto = total % 11;
-			return (resto == 0 || resto == 1) ? 0 : (11 - resto);
-		} catch (Exception e) {
-			return 0;
-		}
-	}
+        int resto = total % 11;
+        return (resto == 0 || resto == 1) ? 0 : (11 - resto);
+    }
 
-	public void salvaXML(String xml, String chaveNfe) {
-		Path DIRETORIO;
-		String contexto = "";
+    public boolean salvaXML(String xml, String chaveNfe) {
+        try {
+            String contexto = new File(".").getCanonicalPath();
+            Path diretorio = Paths.get(contexto, CAMINHO_XML);
+            File file = new File(diretorio.toFile(), chaveNfe + ".xml");
 
-		try {
-			contexto = new File(".").getCanonicalPath();
-		} catch (Exception e) {
-			System.out.println("Erro ao pegar o contexto " + e);
-		}
+            try (PrintWriter out = createPrintWriter(file)) {
+                out.write(xml);
+            }
 
-		DIRETORIO = Paths.get(contexto + CAMINHO_XML);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
 
-		try {
-			PrintWriter out = new PrintWriter(new FileWriter(DIRETORIO.toString() + "/" + chaveNfe + ".xml"));
-			out.write(xml);
-			out.close();
-			System.out.println("Arquivo gravado com sucesso em " + DIRETORIO.toString());
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+    public boolean removeXml(String chaveAcesso) {
+        try {
+            String contexto = new File(".").getCanonicalPath();
+            Path path = Paths.get(contexto, CAMINHO_XML, chaveAcesso + ".xml");
 
-	/*
-	 * responsável por remover o xml quando o mesmo já existe na nota que foi
-	 * regerada
-	 */
-	public void removeXml(String chave_acesso) {
-		String contexto = "";
+            Files.delete(path);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
+    }
 
-		try {
-			contexto = new File(".").getCanonicalPath();
-		} catch (Exception e) {
-			System.out.println("Erro ao pegar o contexto " + e);
-		}
+    public Optional<NotaFiscal> busca(Long codnota) {
+        return notasFiscais.findById(codnota);
+    }
 
-		try {
-			File file = new File(contexto + CAMINHO_XML + "/" + chave_acesso + ".xml");
-			System.out.println("XML para deletar " + file.toString());
-			if (file.exists())
-				file.delete();
-		} catch (Exception e) {
-			System.out.println("Erro ao deletar XML " + e);
-		}
-	}
+    public void emitir(NotaFiscal notaFiscal) {
+        GeraXmlNfe geraXmlNfe = new GeraXmlNfe();
+        String chaveNfe = geraXmlNfe.gerarXML(notaFiscal);
+        notaFiscal.setChave_acesso(chaveNfe);
+        notasFiscais.save(notaFiscal);
+    }
 
-	public Optional<NotaFiscal> busca(Long codnota) {
-		return notasFiscais.findById(codnota);
-	}
-
-	public void emitir(NotaFiscal notaFiscal) {
-		GeraXmlNfe geraXmlNfe = new GeraXmlNfe();
-
-		// gera o xml e pega a chave de acesso do mesmo
-		String chaveNfe = geraXmlNfe.gerarXML(notaFiscal);
-
-		// seta a chave de acesso na nota fiscal para gravala no banco
-		notaFiscal.setChave_acesso(chaveNfe);
-
-		notasFiscais.save(notaFiscal);
-	}
-
-	public int totalNotaFiscalEmitidas() {
-		return notasFiscais.totalNotaFiscalEmitidas();
-	}
-
+    public int totalNotaFiscalEmitidas() {
+        return notasFiscais.totalNotaFiscalEmitidas();
+    }
 }
