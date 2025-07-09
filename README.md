@@ -18,6 +18,9 @@ https://docs.google.com/document/d/1d0zmDj3YZCjAiK0FGM6cmaDSUtxbNDfAkq_WzhwJ7f0/
 # Caso de teste FornecedorService
 https://docs.google.com/document/d/1HNzAACbz0uUIVuhL6RnWe2MeJypb0y_j2kws7qtZ6I8/edit?usp=sharing
 
+# ENTREGA 2 - Docs
+https://docs.google.com/document/d/13SXi9CA_gV6Zv8VqCjMLQ4XGdSy4w3BRGZj3hMcXZyE/edit?usp=sharing
+
 # Recursos
 - Cadastro produtos/clientes/fornecedor
 - Controle de estoque
