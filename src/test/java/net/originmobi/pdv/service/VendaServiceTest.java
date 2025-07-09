@@ -1,10 +1,12 @@
 package net.originmobi.pdv.service;
 
 import net.originmobi.pdv.controller.TituloService;
+import net.originmobi.pdv.dto.PagamentoContext;
 import net.originmobi.pdv.enumerado.EntradaSaida;
 import net.originmobi.pdv.enumerado.VendaSituacao;
 import net.originmobi.pdv.enumerado.caixa.EstiloLancamento;
 import net.originmobi.pdv.enumerado.caixa.TipoLancamento;
+import net.originmobi.pdv.exception.VendaException;
 import net.originmobi.pdv.filter.VendaFilter;
 import net.originmobi.pdv.model.*;
 import net.originmobi.pdv.model.cartao.CartaoLancamento;
@@ -46,19 +48,20 @@ public class VendaServiceTest {
     @Mock
     private UsuarioService usuarioService;
     @Mock
-    private VendaRepository vendas;
+    private VendaRepository vendaRepository;
 
     @Mock
     private VendaProdutoService vendaProdutos;
 
-    @Mock private PagamentoTipoService formaPagamentos;
+    @Mock private PagamentoTipoService formaPagamentoService;
     @Mock private TituloService tituloService;
-    @Mock private CaixaService caixas;
+    @Mock private CaixaService caixaService;
     @Mock private ProdutoService produtos;
     @Mock private ReceberService receberServ;
     @Mock private CartaoLancamentoService cartaoLancamentoService;
-    @Mock private CaixaLancamentoService lancamentos;
+    @Mock private CaixaLancamentoService lancamentoService;
     @Mock private ParcelaService parcelas;
+
 
     private final Long codVenda = 1L;
     private final Long codProduto = 10L;
@@ -101,13 +104,13 @@ public class VendaServiceTest {
 
         vendaService.abreVenda(vendaExistente);
 
-        verify(vendas).updateDadosVenda(
+        verify(vendaRepository).updateDadosVenda(
                 eq(vendaExistente.getPessoa()),
                 eq("Observação"),
                 eq(123L)
         );
 
-        verify(vendas, never()).save(any());
+        verify(vendaRepository, never()).save(any());
     }
 
     @Test
@@ -122,7 +125,7 @@ public class VendaServiceTest {
         assertNotNull(novaVenda.getUsuario());
         assertEquals(0.0, novaVenda.getValor_produtos());
 
-        verify(vendas).save(novaVenda);
+        verify(vendaRepository).save(novaVenda);
     }
 
     @Test
@@ -134,7 +137,7 @@ public class VendaServiceTest {
 
         Usuario usuarioMock = new Usuario();
         when(usuarioService.buscaUsuario(aplicacao.getUsuarioAtual())).thenReturn(usuarioMock);
-        when(vendas.save(any(Venda.class))).thenAnswer(invocation -> {
+        when(vendaRepository.save(any(Venda.class))).thenAnswer(invocation -> {
             Venda v = invocation.getArgument(0);
             v.setCodigo(123L);
             return v;
@@ -149,7 +152,7 @@ public class VendaServiceTest {
         assertEquals(0.0, venda.getValor_produtos());
         assertNotNull(venda.getData_cadastro());
 
-        verify(vendas).save(venda);
+        verify(vendaRepository).save(venda);
     }
 
     @Test
@@ -157,7 +160,7 @@ public class VendaServiceTest {
         Venda venda = mock(Venda.class);
         when(venda.getCodigo()).thenReturn(null);
 
-        doThrow(new RuntimeException("erro")).when(vendas).save(any(Venda.class));
+        doThrow(new RuntimeException("erro")).when(vendaRepository).save(any(Venda.class));
 
         assertDoesNotThrow(() -> vendaService.abreVenda(venda));
     }
@@ -167,7 +170,7 @@ public class VendaServiceTest {
     void abreVendaExceptionEmSave() {
         Venda venda = new Venda();
         venda.setCodigo(null);
-        when(vendas.save(any())).thenThrow(new RuntimeException("Erro"));
+        when(vendaRepository.save(any())).thenThrow(new RuntimeException("Erro"));
 
         assertDoesNotThrow(() -> vendaService.abreVenda(venda));
     }
@@ -184,7 +187,7 @@ public class VendaServiceTest {
 
         Page<Venda> fakePage = new PageImpl<>(List.of(fakeVenda));
 
-        when(vendas.findByCodigo(eq(1234L), any(Pageable.class))).thenReturn(fakePage);
+        when(vendaRepository.findByCodigo(eq(1234L), any(Pageable.class))).thenReturn(fakePage);
 
         var result = vendaService.busca(vendaFilter, situacao, pageable);
 
@@ -204,7 +207,7 @@ public class VendaServiceTest {
         fakeVenda.setCodigo(1L);
         Page<Venda> fakePage = new PageImpl<>(List.of(fakeVenda));
 
-        when(vendas.findBySituacaoEquals(eq(VendaSituacao.ABERTA), eq(pageable)))
+        when(vendaRepository.findBySituacaoEquals(eq(VendaSituacao.ABERTA), eq(pageable)))
                 .thenReturn(fakePage);
 
         Page<Venda> result = vendaService.busca(filter, situacao, pageable);
@@ -221,14 +224,14 @@ public class VendaServiceTest {
         String situacao = "ABERTA";
         Pageable pageable = mock(Pageable.class);
 
-        when(vendas.findByCodigo(eq(1234L), any(Pageable.class))).thenReturn(null);
+        when(vendaRepository.findByCodigo(eq(1234L), any(Pageable.class))).thenReturn(null);
 
         assertNull(vendaService.busca(vendaFilter, situacao, pageable));
     }
 
     @Test
     public void testAddProdutoVendaAberta() {
-        when(vendas.verificaSituacao(codVenda)).thenReturn(VendaSituacao.ABERTA.toString());
+        when(vendaRepository.verificaSituacao(codVenda)).thenReturn(VendaSituacao.ABERTA.toString());
 
         doNothing().when(vendaProdutos).salvar(any(VendaProduto.class));
 
@@ -240,7 +243,7 @@ public class VendaServiceTest {
 
     @Test
     public void testAddProdutoVendaFechada() {
-        when(vendas.verificaSituacao(codVenda)).thenReturn(VendaSituacao.FECHADA.toString());
+        when(vendaRepository.verificaSituacao(codVenda)).thenReturn(VendaSituacao.FECHADA.toString());
 
         String result = vendaService.addProduto(codVenda, codProduto, vlBalanca);
 
@@ -250,7 +253,7 @@ public class VendaServiceTest {
 
     @Test
     void testAddProdutoException() {
-        when(vendas.verificaSituacao(codVenda)).thenReturn(VendaSituacao.ABERTA.toString());
+        when(vendaRepository.verificaSituacao(codVenda)).thenReturn(VendaSituacao.ABERTA.toString());
         doThrow(new RuntimeException("Erro")).when(vendaProdutos).salvar(any());
 
         String result = vendaService.addProduto(codVenda, codProduto, vlBalanca);
@@ -262,7 +265,7 @@ public class VendaServiceTest {
         Venda venda = new Venda();
         venda.setSituacao(VendaSituacao.ABERTA);
 
-        when(vendas.findByCodigoEquals(codVenda)).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenReturn(venda);
 
         String result = vendaService.removeProduto(posicaoProd, codVenda);
 
@@ -275,7 +278,7 @@ public class VendaServiceTest {
         Venda venda = new Venda();
         venda.setSituacao(VendaSituacao.FECHADA);
 
-        when(vendas.findByCodigoEquals(codVenda)).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenReturn(venda);
 
         String result = vendaService.removeProduto(posicaoProd, codVenda);
 
@@ -288,7 +291,7 @@ public class VendaServiceTest {
         Venda venda = new Venda();
         venda.setSituacao(null);
 
-        when(vendas.findByCodigoEquals(codVenda)).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenReturn(venda);
 
         String result = vendaService.removeProduto(posicaoProd, codVenda);
 
@@ -298,7 +301,7 @@ public class VendaServiceTest {
 
     @Test
     public void testRemoveProdutoComExcecao() {
-        when(vendas.findByCodigoEquals(codVenda)).thenThrow(new RuntimeException("DB failure"));
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenThrow(new RuntimeException("DB failure"));
 
         String result = vendaService.removeProduto(posicaoProd, codVenda);
 
@@ -308,7 +311,7 @@ public class VendaServiceTest {
 
     @Test
     void removeProdutoFindException() {
-        when(vendas.findByCodigoEquals(codVenda)).thenThrow(new RuntimeException("erro"));
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenThrow(new RuntimeException("erro"));
 
         String result = vendaService.removeProduto(posicaoProd, codVenda);
         assertEquals("ok", result);
@@ -323,7 +326,7 @@ public class VendaServiceTest {
 
         List<Venda> mockVendas = List.of(venda1, venda2);
 
-        when(vendas.findAll()).thenReturn(mockVendas);
+        when(vendaRepository.findAll()).thenReturn(mockVendas);
 
         List<Venda> result = vendaService.lista();
 
@@ -332,7 +335,7 @@ public class VendaServiceTest {
         assertEquals(1L, result.get(0).getCodigo());
         assertEquals(2L, result.get(1).getCodigo());
 
-        verify(vendas, times(1)).findAll();
+        verify(vendaRepository, times(1)).findAll();
     }
 
     @Test
@@ -348,12 +351,12 @@ public class VendaServiceTest {
         Venda venda = new Venda();
         venda.setPessoa(new Pessoa());
         venda.setSituacao(VendaSituacao.ABERTA);
-        when(vendas.findByCodigoEquals(vendaId)).thenReturn(venda);
-        when(vendas.verificaSituacao(vendaId)).thenReturn("ABERTA");
+        when(vendaRepository.findByCodigoEquals(vendaId)).thenReturn(venda);
+        when(vendaRepository.verificaSituacao(vendaId)).thenReturn("ABERTA");
 
         PagamentoTipo pagamentoTipo = new PagamentoTipo();
         pagamentoTipo.setFormaPagamento("00");
-        when(formaPagamentos.busca(pagamentoTipoId)).thenReturn(pagamentoTipo);
+        when(formaPagamentoService.busca(pagamentoTipoId)).thenReturn(pagamentoTipo);
 
         Titulo titulo = new Titulo();
         TituloTipo tipo = new TituloTipo();
@@ -361,13 +364,13 @@ public class VendaServiceTest {
         titulo.setTipo(tipo);
         when(tituloService.busca(Long.valueOf(titulos[0]))).thenReturn(Optional.of(titulo));
 
-        when(caixas.caixaIsAberto()).thenReturn(true);
-        when(caixas.caixaAberto()).thenReturn(Optional.of(new Caixa()));
+        when(caixaService.caixaIsAberto()).thenReturn(true);
+        when(caixaService.caixaAberto()).thenReturn(Optional.of(new Caixa()));
         when(usuarioService.buscaUsuario(any())).thenReturn(new Usuario());
 
         doNothing().when(receberServ).cadastrar(any(Receber.class));
 
-        doNothing().when(vendas).fechaVenda(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), any(), any());
+        doNothing().when(vendaRepository).fechaVenda(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), any(), any());
 
         doNothing().when(produtos).movimentaEstoque(eq(vendaId), eq(EntradaSaida.SAIDA));
 
@@ -389,7 +392,7 @@ public class VendaServiceTest {
         Venda venda = new Venda();
         venda.setSituacao(VendaSituacao.FECHADA);
 
-        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(1L)).thenReturn(venda);
 
         assertThrows(RuntimeException.class, () -> {
             vendaService.fechaVenda(1L, 1L, 100.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
@@ -398,7 +401,7 @@ public class VendaServiceTest {
 
     @Test
     public void testFechaVenda_ValorZero() {
-        when(vendas.findByCodigoEquals(1L)).thenReturn(new Venda());
+        when(vendaRepository.findByCodigoEquals(1L)).thenReturn(new Venda());
 
         assertThrows(RuntimeException.class, () -> {
             vendaService.fechaVenda(1L, 1L, 0.0, 0.0, 0.0, new String[]{"0.0"}, new String[]{"1"});
@@ -409,7 +412,7 @@ public class VendaServiceTest {
     public void testFechaVendaSemValorParcelas() {
         Venda venda = new Venda();
         venda.setValor_produtos(-100.0);
-        when(vendas.findByCodigoEquals(any())).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(any())).thenReturn(venda);
 
         assertThrows(RuntimeException.class, () -> {
             vendaService.fechaVenda(1L, 1L, 0.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
@@ -422,65 +425,13 @@ public class VendaServiceTest {
         venda.setValor_produtos(-100.0);
         venda.setCodigo(1L);
         venda.setSituacao(VendaSituacao.ABERTA);
-        when(vendas.findByCodigoEquals(any())).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(any())).thenReturn(venda);
 
         assertThrows(RuntimeException.class, () -> {
             vendaService.fechaVenda(1L, 1L, -100.0, 0.0, 0.0, new String[]{"100.0"}, new String[]{"1"});
         }, "Venda sem valor, verifique");
     }
 
-//    @Test
-//    void deveLancarCartaoDebito_QuandoTituloForCartDeb() {
-//        // Arrange
-//        Long vendaId = 1L;
-//        Long pagamentoTipoId = 3L;
-//
-//        Pessoa pessoa = new Pessoa();
-//        pessoa.setNome("Maria");
-//        pessoa.setCodigo(123L); // ✅ IMPORTANT!
-//
-//        Venda venda = new Venda();
-//        venda.setCodigo(1L); // ✅ REQUIRED
-//        venda.setPessoa(pessoa);
-//        venda.setSituacao(VendaSituacao.ABERTA);
-//
-//        Titulo titulo = new Titulo();
-//        TituloTipo tipo = new TituloTipo();
-//        tipo.setSigla("CARTDEB");
-//        titulo.setTipo(tipo);
-//        titulo.setCodigo(10L); // ✅ Also needed!
-//
-//        PagamentoTipo pagamentoTipo =new PagamentoTipo("A", net.originmobi.pdv.enumerado.TituloTipo.CARTDEB.toString(), new Date(10000L));
-//
-//        titulo.setTipo(tipo);
-//        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
-//        when(vendas.findByCodigoEquals(vendaId)).thenReturn(venda);
-//        when(formaPagamentos.busca(pagamentoTipoId)).thenReturn(pagamentoTipo);
-//        when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
-//        when(caixas.caixaIsAberto()).thenReturn(true);
-//
-//        String[] valoresParcelas = {"100.0"};
-//        String[] titulosIds = {"1"};
-//
-//        try {
-//            vendaService.fechaVenda(
-//                    vendaId,
-//                    pagamentoTipoId,
-//                    100.0,
-//                    0.0,
-//                    0.0,
-//                    valoresParcelas,
-//                    titulosIds
-//            );
-//        } catch (RuntimeException e) {
-//            System.out.println("ERRO: " + e.getMessage());
-//            throw e; // rethrow to let the test fail
-//        }
-//
-//
-//        // Assert: The branch was hit if cartaLancamento.lancamento was called
-//        verify(cartaoLancamentoService).lancamento(100.0, Optional.of(titulo));
-//    }
 
     @Test
     void fechaVendaPessoaNula() {
@@ -493,8 +444,8 @@ public class VendaServiceTest {
         venda.setSituacao(VendaSituacao.ABERTA);
         venda.setPessoa(null);
 
-        when(vendas.findByCodigoEquals(vendaId)).thenReturn(venda);
-        when(formaPagamentos.busca(pagamentoTipoId)).thenReturn(new PagamentoTipo("A","Crédito", new Date(10000L)));
+        when(vendaRepository.findByCodigoEquals(vendaId)).thenReturn(venda);
+        when(formaPagamentoService.busca(pagamentoTipoId)).thenReturn(new PagamentoTipo("A","Crédito", new Date(10000L)));
         when(tituloService.busca(anyLong())).thenReturn(Optional.of(mock(Titulo.class)));
 
         // Act & Assert
@@ -532,10 +483,10 @@ public class VendaServiceTest {
         Titulo titulo = new Titulo();
         titulo.setTipo(tituloTipo);
 
-        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
-        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(vendaRepository.findByCodigoEquals(1L)).thenReturn(venda);
+        when(formaPagamentoService.busca(1L)).thenReturn(pagamentoTipo);
         when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
-        when(caixas.caixaIsAberto()).thenReturn(false);
+        when(caixaService.caixaIsAberto()).thenReturn(false);
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> {
             vendaService.fechaVenda(
@@ -549,7 +500,7 @@ public class VendaServiceTest {
             );
         });
 
-        assertEquals("nenhum caixa aberto", ex.getMessage());
+        assertEquals("Nenhum caixa aberto", ex.getMessage());
     }
 
     @Test
@@ -559,8 +510,8 @@ public class VendaServiceTest {
         venda.setPessoa(new Pessoa());
         venda.setSituacao(VendaSituacao.ABERTA);
 
-        when(vendas.verificaSituacao(1L)).thenReturn("ABERTA");
-        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+        when(vendaRepository.verificaSituacao(1L)).thenReturn("ABERTA");
+        when(vendaRepository.findByCodigoEquals(1L)).thenReturn(venda);
 
         PagamentoTipo pagamentoTipo = new PagamentoTipo();
         pagamentoTipo.setFormaPagamento("00");
@@ -570,12 +521,12 @@ public class VendaServiceTest {
         tipo.setSigla("CARTCRED");
         titulo.setTipo(tipo);
 
-        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(formaPagamentoService.busca(1L)).thenReturn(pagamentoTipo);
         when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
 
         doNothing().when(receberServ).cadastrar(any());
         doNothing().when(cartaoLancamentoService).lancamento(anyDouble(), any());
-        doNothing().when(vendas).fechaVenda(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), any(), any());
+        doNothing().when(vendaRepository).fechaVenda(anyLong(), any(), anyDouble(), anyDouble(), anyDouble(), any(), any());
         doNothing().when(produtos).movimentaEstoque(anyLong(), any());
 
         String result = vendaService.fechaVenda(
@@ -599,9 +550,9 @@ public class VendaServiceTest {
         tipo.setSigla("DIN");
         titulo.setTipo(tipo);
 
-        when(vendas.verificaSituacao(1L)).thenReturn("ABERTA");
-        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
-        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(vendaRepository.verificaSituacao(1L)).thenReturn("ABERTA");
+        when(vendaRepository.findByCodigoEquals(1L)).thenReturn(venda);
+        when(formaPagamentoService.busca(1L)).thenReturn(pagamentoTipo);
         when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> {
@@ -617,13 +568,13 @@ public class VendaServiceTest {
         venda.setPessoa(new Pessoa());
         venda.setSituacao(VendaSituacao.ABERTA);
 
-        when(vendas.verificaSituacao(1L)).thenReturn("ABERTA");
-        when(vendas.findByCodigoEquals(1L)).thenReturn(venda);
+        when(vendaRepository.verificaSituacao(1L)).thenReturn("ABERTA");
+        when(vendaRepository.findByCodigoEquals(1L)).thenReturn(venda);
 
         PagamentoTipo pagamentoTipo = new PagamentoTipo();
         pagamentoTipo.setFormaPagamento("00");
 
-        when(formaPagamentos.busca(1L)).thenReturn(pagamentoTipo);
+        when(formaPagamentoService.busca(1L)).thenReturn(pagamentoTipo);
         when(tituloService.busca(1L)).thenReturn(Optional.empty());
 
         RuntimeException ex = assertThrows(RuntimeException.class, () -> {
@@ -632,7 +583,8 @@ public class VendaServiceTest {
     }
 
     @Test
-    public void testA_Prazo() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+    void testA_Prazo() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        // Setup values
         String[] vlParcelas = {"100.0"};
         String[] formaPagar = {"30"};
         Double vlProdutos = 100.0;
@@ -643,22 +595,41 @@ public class VendaServiceTest {
         int i = 0;
 
         Receber receber = new Receber();
+        Venda venda = new Venda(); // Optional: fill with more data if aprazo uses it
         DataAtual dataAtual = mock(DataAtual.class);
 
-        when(dataAtual.dataAtualTimeStamp()).thenReturn(new Timestamp(System.currentTimeMillis()));
-        when(dataAtual.DataAtualIncrementa(30)).thenReturn(LocalDate.now().plusDays(30).toString());
+        Timestamp timestampAtual = new Timestamp(System.currentTimeMillis());
+        LocalDate vencimento = LocalDate.now().plusDays(30);
 
-        Method method = VendaService.class.getDeclaredMethod("aprazo", Double.class, String[].class, DataAtual.class,
-                String[].class, int.class, int.class, Receber.class, int.class, Double.class, Double.class);
+        // Mock expected dates
+        when(dataAtual.dataAtualTimeStamp()).thenReturn(timestampAtual);
+        when(dataAtual.DataAtualIncrementa(30)).thenReturn(vencimento.toString());
+
+        // Build context
+        PagamentoContext context = new PagamentoContext(
+                formaPagar,
+                new String[] {"Título 1"},
+                vlProdutos,
+                vlParcelas,
+                desconto,
+                acrescimo,
+                venda,
+                dataAtual,
+                receber
+        );
+
+        // Invoke private method with reflection
+        Method method = VendaService.class.getDeclaredMethod("aprazo", PagamentoContext.class, int.class, int.class);
         method.setAccessible(true);
 
-        int novoSequencia = (int) method.invoke(vendaService, vlProdutos, vlParcelas, dataAtual, formaPagar,
-                qtdVezes, sequencia, receber, i, acrescimo, desconto);
+        int novoSequencia = (int) method.invoke(vendaService, context, sequencia, i);
 
+        // Assertion
         assertEquals(sequencia + 1, novoSequencia);
 
+        // Verify parcelas.gerarParcela called correctly
         verify(parcelas).gerarParcela(
-                eq(105.0),
+                eq(105.0),      // valor parcela final (100 + 10 - 5)
                 eq(0.0),
                 eq(0.0),
                 eq(0.0),
@@ -682,7 +653,7 @@ public class VendaServiceTest {
         int i = 0;
 
         Caixa caixa = new Caixa();
-        when(caixas.caixaAberto()).thenReturn(Optional.of(caixa));
+        when(caixaService.caixaAberto()).thenReturn(Optional.of(caixa));
 
         Usuario usuario = new Usuario();
         Aplicacao instanciaMockada = mock(Aplicacao.class);
@@ -691,16 +662,16 @@ public class VendaServiceTest {
 
         ArgumentCaptor<CaixaLancamento> captor = ArgumentCaptor.forClass(CaixaLancamento.class);
 
-        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class, String[].class,
-                int.class, int.class, Double.class, Double.class);
+        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class, int.class,
+                int.class, Double.class, Double.class);
         method.setAccessible(true);
 
-        int novaQtdVezes = (int) method.invoke(vendaService, vlProdutos, vlParcelas, formaPagar,
+        int novaQtdVezes = (int) method.invoke(vendaService, vlProdutos, vlParcelas,
                 qtdVezes, i, acrescimo, desconto);
 
         assertEquals(0, novaQtdVezes);
 
-        verify(lancamentos).lancamento(captor.capture());
+        verify(lancamentoService).lancamento(captor.capture());
 
         CaixaLancamento lancamento = captor.getValue();
         assertEquals("Recebimento de venda á vista", lancamento.getObservacao());
@@ -712,8 +683,29 @@ public class VendaServiceTest {
     }
 
     @Test
+    void fechaVenda_calculaValorTotalCorretamente() {
+        PagamentoTipo pagamentoTipo = new PagamentoTipo();
+        pagamentoTipo.setFormaPagamento("30");
+
+        when(vendaRepository.findByCodigoEquals(anyLong())).thenReturn(new Venda());
+        when(formaPagamentoService.busca(anyLong())).thenReturn(pagamentoTipo);
+        doNothing().when(formaPagamentoService).cadastrar(any());
+
+        Venda venda = new Venda();
+        venda.setSituacao(VendaSituacao.ABERTA);
+        when(vendaRepository.findByCodigoEquals(anyLong())).thenReturn(venda);
+
+        vendaService.fechaVenda(2L, 1L, 100.0, 10.0, 20.0, new String[]{"110"}, new String[]{"1"});
+
+        // Verify correct value (100 + 20 - 10 = 110)
+        ArgumentCaptor<Receber> receberCaptor = ArgumentCaptor.forClass(Receber.class);
+        verify(receberServ).cadastrar(receberCaptor.capture());
+        assertEquals(110.0, receberCaptor.getValue().getValor_total(), 0.01);
+    }
+
+    @Test
     void avistaDinheiro_valorDivergente() throws Exception {
-        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class, String[].class,
+        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class,
                 int.class, int.class, Double.class, Double.class);
         method.setAccessible(true);
 
@@ -724,7 +716,7 @@ public class VendaServiceTest {
         Double desconto = 0.0;
 
         InvocationTargetException exception = assertThrows(InvocationTargetException.class, () -> {
-            method.invoke(vendaService, vlprodutos, vlParcelas, formaPagar, 2, 0, acrescimo, desconto);
+            method.invoke(vendaService, vlprodutos, vlParcelas, 2, 0, acrescimo, desconto);
         });
 
         Throwable realException = exception.getCause();
@@ -734,8 +726,96 @@ public class VendaServiceTest {
     }
 
     @Test
+    void testeAvistaDinheiroValorParcelasDiferente() {
+        Long codigoVenda = 1L;
+        Long codigoTipoPagamento = 2L;
+        Double valorProdutos = 100.0;
+        Double desconto = 0.0;
+        Double acrescimo = 0.0;
+        String[] valoresParcelas = {"50.0"};
+        String[] codigosTitulos = {"1"};
+
+        Venda venda = new Venda();
+        venda.setCodigo(codigoVenda);
+        venda.setSituacao(VendaSituacao.ABERTA);
+        venda.setValor_produtos(valorProdutos);
+        Pessoa pessoa = new Pessoa();
+        venda.setPessoa(pessoa);
+
+        PagamentoTipo tipoPagamento = new PagamentoTipo();
+        tipoPagamento.setCodigo(codigoTipoPagamento);
+        tipoPagamento.setFormaPagamento("00");
+
+        Titulo titulo = new Titulo();
+        titulo.setCodigo(1L);
+        TituloTipo tipoTitulo = new TituloTipo();
+        tipoTitulo.setSigla("DIN");
+        tipoTitulo.setDescricao("Dinheiro");
+        titulo.setTipo(tipoTitulo);
+
+        when(vendaRepository.findByCodigoEquals(codigoVenda)).thenReturn(venda);
+        when(formaPagamentoService.busca(codigoTipoPagamento)).thenReturn(tipoPagamento);
+        when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
+        when(caixaService.caixaIsAberto()).thenReturn(true);
+        when(caixaService.caixaAberto()).thenReturn(Optional.of(new Caixa()));
+
+        RuntimeException ex = assertThrows(RuntimeException.class, () ->
+                vendaService.fechaVenda(codigoVenda, codigoTipoPagamento, valorProdutos, desconto, acrescimo, valoresParcelas, codigosTitulos)
+        );
+        assertEquals("Valor das parcelas diferente do valor total de produtos, verifique", ex.getMessage());
+        verify(lancamentoService, never()).lancamento(any());
+    }
+
+    @Test
+    void testeAVistaDinheiroExceptionLancamento() {
+        Long codigoVenda = 1L;
+        Double valorProdutos = 100.0;
+        String[] valoresParcelas = {"100.0"};
+        String[] codigosTitulos = {"1"};
+        Double desconto = 0.0;
+        Double acrescimo = 0.0;
+        Long codigoTipoPagamento = 2L;
+
+        Venda venda = new Venda();
+        venda.setCodigo(codigoVenda);
+        venda.setSituacao(VendaSituacao.ABERTA);
+        venda.setValor_produtos(valorProdutos);
+        Pessoa pessoa = new Pessoa();
+        venda.setPessoa(pessoa);
+
+        PagamentoTipo tipoPagamento = new PagamentoTipo();
+        tipoPagamento.setCodigo(codigoTipoPagamento);
+        tipoPagamento.setFormaPagamento("00");
+
+        Titulo titulo = new Titulo();
+        titulo.setCodigo(1L);
+        TituloTipo tipoTitulo = new TituloTipo();
+        tipoTitulo.setSigla("DIN");
+        tipoTitulo.setDescricao("Dinheiro");
+        titulo.setTipo(tipoTitulo);
+
+        Usuario usuario = new Usuario();
+        usuario.setCodigo(1L);
+        Caixa caixa = new Caixa();
+        caixa.setCodigo(1L);
+
+        when(vendaRepository.findByCodigoEquals(codigoVenda)).thenReturn(venda);
+        when(formaPagamentoService.busca(codigoTipoPagamento)).thenReturn(tipoPagamento);
+        when(tituloService.busca(1L)).thenReturn(Optional.of(titulo));
+        when(usuarioService.buscaUsuario("gerente")).thenReturn(usuario);
+        when(caixaService.caixaAberto()).thenReturn(Optional.of(caixa));
+        when(caixaService.caixaIsAberto()).thenReturn(true);
+        doThrow(new VendaException("Erro ao fechar a venda, chame o suporte"))
+                .when(lancamentoService).lancamento(any());
+        VendaException ex = assertThrows(VendaException.class, () ->
+                vendaService.fechaVenda(codigoVenda, codigoTipoPagamento, valorProdutos, desconto, acrescimo, valoresParcelas, codigosTitulos)
+        );
+        assertEquals("Erro ao fechar a venda, chame o suporte", ex.getMessage());
+    }
+
+    @Test
     void avistaDinheiro_parcelaVazia() throws Exception {
-        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class, String[].class,
+        Method method = VendaService.class.getDeclaredMethod("avistaDinheiro", Double.class, String[].class,
                 int.class, int.class, Double.class, Double.class);
         method.setAccessible(true);
 
@@ -743,7 +823,7 @@ public class VendaServiceTest {
         String[] forma = {"00"};
 
         InvocationTargetException exception = assertThrows(InvocationTargetException.class, () -> {
-            method.invoke(vendaService, 100.0, parcelas, forma, 1, 0, 0.0, 0.0);
+            method.invoke(vendaService, 100.0, parcelas, 1, 0, 0.0, 0.0);
         });
 
         Throwable realException = exception.getCause();
@@ -757,7 +837,7 @@ public class VendaServiceTest {
         Long codVenda = 123L;
         Venda venda = mock(Venda.class);
         when(venda.isAberta()).thenReturn(true);
-        when(vendas.findByCodigoEquals(codVenda)).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenReturn(venda);
 
         Method method = VendaService.class.getDeclaredMethod("vendaIsAberta", Long.class);
         method.setAccessible(true);
@@ -772,7 +852,7 @@ public class VendaServiceTest {
         Long codVenda = 456L;
         Venda venda = mock(Venda.class);
         when(venda.isAberta()).thenReturn(false);
-        when(vendas.findByCodigoEquals(codVenda)).thenReturn(venda);
+        when(vendaRepository.findByCodigoEquals(codVenda)).thenReturn(venda);
 
         Method method = VendaService.class.getDeclaredMethod("vendaIsAberta", Long.class);
         method.setAccessible(true);
@@ -783,9 +863,20 @@ public class VendaServiceTest {
     }
 
     @Test
+    void testeQtdAbertosSemVendasAbertas() {
+        int quantidadeEsperada = 0;
+        when(vendaRepository.qtdVendasEmAberto()).thenReturn(quantidadeEsperada);
+
+        int resultado = vendaService.qtdAbertos();
+
+        assertEquals(quantidadeEsperada, resultado);
+        verify(vendaRepository).qtdVendasEmAberto();
+    }
+
+    @Test
     void testeQtdAbertos() {
         int qtdEsperada = 3;
-        when(vendas.qtdVendasEmAberto()).thenReturn(qtdEsperada);
+        when(vendaRepository.qtdVendasEmAberto()).thenReturn(qtdEsperada);
 
         int qtdRetornada = vendaService.qtdAbertos();
 

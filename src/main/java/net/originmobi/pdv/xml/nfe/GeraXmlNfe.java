@@ -33,8 +33,7 @@ public class GeraXmlNfe {
 		
 		//pega a chave da nfe
 		String chaveNfe = conversor.retornaChaveNfe();
-		
-		nfServer = new NotaFiscalService();
+
 		
 		if(notaFiscal.getChave_acesso() != null) {
 			nfServer.removeXml(notaFiscal.getChave_acesso());
