@@ -19,6 +19,7 @@ https://docs.google.com/document/d/1d0zmDj3YZCjAiK0FGM6cmaDSUtxbNDfAkq_WzhwJ7f0/
 https://docs.google.com/document/d/1HNzAACbz0uUIVuhL6RnWe2MeJypb0y_j2kws7qtZ6I8/edit?usp=sharing
 
 # ENTREGA 2 - Docs
+- Relatório completo da entrega 2:
 https://docs.google.com/document/d/13SXi9CA_gV6Zv8VqCjMLQ4XGdSy4w3BRGZj3hMcXZyE/edit?usp=sharing
 - Teste de integração nas pastas que começam com "postman.../"
 - Entregáveis nas pastas que começam com "entregaveis.../"
